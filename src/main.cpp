@@ -40,6 +40,16 @@ struct ToyEnv {
     }
 };
 
+// Returns true when a URL contains a meaningful path after the host:port,
+// e.g. "https://api.example.com/v1/chat" → true
+//      "http://192.168.1.1:11434"         → false
+static bool url_has_path(const std::string& url) {
+    auto scheme_end = url.find("://");
+    if (scheme_end == std::string::npos) return false;
+    auto slash = url.find('/', scheme_end + 3);
+    return slash != std::string::npos && slash + 1 < url.size();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
     const int STATE_SIZE  = 20;
@@ -49,26 +59,57 @@ int main(int argc, char* argv[]) {
     // ── 1. Code-aware pipeline (optional – requires real codebase path) ───────
     // Usage:
     //   Anthropic: ./deep_rl_agent <codebase> <api_key> [story]
-    //   Ollama:    ./deep_rl_agent <codebase> <ollama_base_url> <model> [story]
-    //              (Ollama detected when arg[2] starts with "http")
+    //   Ollama:    ./deep_rl_agent <codebase> <http_base_url> <model> [story]
+    //              (base URL = no path component, e.g. http://host:11434)
+    //   Generic:   ./deep_rl_agent <codebase> <https://endpoint/path> [token] [story]
+    //              (detected when URL has a path; token defaults to "")
+    //              Supports: Azure OpenAI, Google Gemini, any OpenAI-compatible API
     if (argc > 1) {
         std::string codebase_path = argv[1];
 
-        bool        use_ollama   = (argc > 2 &&
-                                    std::string(argv[2]).rfind("http", 0) == 0);
-        std::string ollama_url, ollama_model, api_key, user_story;
+        const std::string default_story = "As a user I want to upload a profile picture";
 
-        if (use_ollama) {
-            std::string base = argv[2];
-            if (!base.empty() && base.back() == '/') base.pop_back();
-            ollama_url   = base + "/api/chat";
-            ollama_model = (argc > 3) ? argv[3] : "llama3";
-            user_story   = (argc > 4) ? argv[4]
-                                      : "As a user I want to upload a profile picture";
+        bool        use_ollama  = false;
+        bool        use_generic = false;
+        std::string ollama_url, ollama_model;
+        std::string generic_endpoint, generic_token, generic_model;
+        std::string api_key, user_story;
+
+        if (argc > 2) {
+            std::string arg2 = argv[2];
+            if (arg2.rfind("http", 0) == 0) {
+                if (url_has_path(arg2)) {
+                    // Generic endpoint (Azure, Gemini, OpenAI-compatible, etc.)
+                    use_generic      = true;
+                    generic_endpoint = arg2;
+                    // arg[3]: token (no spaces) or story (has spaces)
+                    if (argc > 3) {
+                        std::string arg3 = argv[3];
+                        if (arg3.find(' ') == std::string::npos) {
+                            generic_token = arg3;          // token
+                            user_story    = (argc > 4) ? argv[4] : default_story;
+                        } else {
+                            user_story = arg3;             // story, no token
+                        }
+                    } else {
+                        user_story = default_story;
+                    }
+                } else {
+                    // Ollama: base URL with no path
+                    use_ollama   = true;
+                    std::string base = arg2;
+                    if (!base.empty() && base.back() == '/') base.pop_back();
+                    ollama_url   = base + "/api/chat";
+                    ollama_model = (argc > 3) ? argv[3] : "llama3";
+                    user_story   = (argc > 4) ? argv[4] : default_story;
+                }
+            } else {
+                // Anthropic API key
+                api_key    = arg2;
+                user_story = (argc > 3) ? argv[3] : default_story;
+            }
         } else {
-            api_key    = (argc > 2) ? argv[2] : "";
-            user_story = (argc > 3) ? argv[3]
-                                    : "As a user I want to upload a profile picture";
+            user_story = default_story;
         }
 
         CodeAnalyzer  analyzer;
@@ -132,7 +173,12 @@ int main(int argc, char* argv[]) {
         std::string prompt = builder.build(user_story, final_decisions, graph);
         std::cout << "\n=== Generated Prompt ===\n" << prompt << "\n";
 
-        if (use_ollama) {
+        if (use_generic) {
+            std::cout << "Calling generic endpoint (" << generic_endpoint << ")...\n";
+            GenericLLMClient llm(generic_endpoint, generic_token, generic_model);
+            auto code = llm.generate(prompt);
+            std::cout << "\n=== Generated Code ===\n" << code << "\n";
+        } else if (use_ollama) {
             std::cout << "Calling Ollama (" << ollama_model
                       << " @ " << ollama_url << ")...\n";
             OllamaClient llm(ollama_model, ollama_url);

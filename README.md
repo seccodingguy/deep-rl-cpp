@@ -14,7 +14,7 @@ See [HOWTO.md](HOWTO.md) for standalone and multi-agent usage guides.
 
 ## Project Structure
 
-```
+```text
 deep_rl_cpp/
 ├── CMakeLists.txt
 ├── README.md
@@ -102,21 +102,44 @@ cmake --build . --config Release
 
 ### With a real codebase — Ollama (no API key)
 
+Detected when the second argument is an `http` base URL with **no path**.
+
 ```bash
-# Local Ollama
+# Local
 ./deep_rl_agent /path/to/project http://localhost:11434 llama3.1:8b "your user story"
 
-# Remote Ollama host
+# Remote
 ./deep_rl_agent /path/to/project http://192.168.50.153:11434 llama3.1:8b "your user story"
 ```
 
-Ollama is detected automatically when the second argument starts with `http`.
+### With a real codebase — Generic endpoint (Azure, Gemini, any OpenAI-compatible API)
+
+Detected when the second argument is a URL **with a path**. The token defaults to an empty string.
+
+```bash
+# Azure OpenAI
+./deep_rl_agent /path/to/project \
+    "https://my-resource.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-01" \
+    my-azure-key "your user story"
+
+# Google Gemini
+./deep_rl_agent /path/to/project \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent" \
+    my-gemini-key "your user story"
+
+# Any OpenAI-compatible endpoint (token optional)
+./deep_rl_agent /path/to/project \
+    https://openrouter.ai/api/v1/chat/completions \
+    my-token "your user story"
+```
+
+The endpoint type is inferred from the URL — see [HOWTO.md](HOWTO.md) for the full detection table.
 
 ### Output
 
 Each run with a codebase path prints four sections:
 
-```
+```text
 Analysed 21 files. Pattern: MVC
 Code Agent Ep 0 | Reward: 1 | Loss: 0 | Eps: 1.0
 ...
@@ -145,7 +168,7 @@ For driving the binary from Python (standalone script or multi-agent orchestrato
 
 ### Q-Value Flow
 
-```
+```text
 State [codebase features + story keywords]  (20-dim)
        │
        ▼
@@ -165,7 +188,7 @@ State [codebase features + story keywords]  (20-dim)
 
 ### Pipeline
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │ OFFLINE (once per codebase)                          │
 │  Codebase → CodeAnalyzer → CodebaseGraph             │

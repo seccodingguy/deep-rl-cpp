@@ -63,19 +63,18 @@ Example:
 
 ### Mode 3 — Codebase Analysis + Code Generation (Ollama)
 
-Same as Mode 2 but uses a local or remote Ollama server — no API key required.
+Uses a local or remote Ollama server — no API key required.
 
 ```bash
 ./build/deep_rl_agent <codebase_path> <ollama_base_url> <model> "<user story>"
 ```
 
-The binary detects Ollama when the second argument starts with `http`.
+Detected automatically when the second argument is an `http` base URL with **no path** (e.g. `http://host:11434`).
 
-**Local Ollama (default port):**
+**Local Ollama:**
 
 ```bash
-# Start Ollama first
-ollama serve
+ollama serve   # start the server first
 
 ./build/deep_rl_agent /path/to/my/project \
     http://localhost:11434 \
@@ -89,6 +88,60 @@ ollama serve
 ./build/deep_rl_agent /path/to/my/project \
     http://192.168.50.153:11434 \
     llama3.1:8b \
+    "As a user I want to reset my password via email"
+```
+
+---
+
+### Mode 4 — Codebase Analysis + Code Generation (Generic endpoint)
+
+Accepts any model endpoint URL — Azure OpenAI, Google Gemini, or any
+OpenAI-compatible API. The token is optional and defaults to an empty string.
+
+```bash
+./build/deep_rl_agent <codebase_path> <endpoint_url> [token] "<user story>"
+```
+
+Detected automatically when the second argument is an `https` URL **with a path**
+(e.g. `https://host/v1/chat/completions`). The endpoint type is then
+inferred from the URL:
+
+| URL contains | Auth mechanism | Request format | Response field |
+| :----------- | :------------- | :------------- | :------------- |
+| `openai.azure.com` | `api-key` header | OpenAI messages | `choices[0].message.content` |
+| `googleapis.com` | `?key=` query param | Gemini contents/parts | `candidates[0].content.parts[0].text` |
+| anything else | `Authorization: Bearer` header | OpenAI messages | `choices[0].message.content` |
+
+**Azure OpenAI:**
+
+```bash
+./build/deep_rl_agent /path/to/my/project \
+    "https://my-resource.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-01" \
+    my-azure-api-key \
+    "As a user I want to reset my password via email"
+```
+
+**Google Gemini:**
+
+```bash
+./build/deep_rl_agent /path/to/my/project \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent" \
+    my-gemini-api-key \
+    "As a user I want to reset my password via email"
+```
+
+**Generic OpenAI-compatible (e.g. OpenRouter, Together AI, local vLLM):**
+
+```bash
+# With auth token
+./build/deep_rl_agent /path/to/my/project \
+    https://openrouter.ai/api/v1/chat/completions \
+    my-token \
+    "As a user I want to reset my password via email"
+
+# Anonymous / no token
+./build/deep_rl_agent /path/to/my/project \
+    http://localhost:8000/v1/chat/completions \
     "As a user I want to reset my password via email"
 ```
 
