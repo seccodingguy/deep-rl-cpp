@@ -1,10 +1,14 @@
 # Deep RL Agent — C++ Implementation
 
 A self-learning Deep Q-Network (DQN) agent that:
-1. Analyses a codebase's structure and conventions
+
+1. Analyses a codebase's structure, conventions, and dominant language
 2. Learns which contextual information to include in prompts
 3. Dynamically generates LLM prompts from user stories
 4. Uses the LLM to produce idiomatic, architecture-conforming code
+5. Scores and analyses user stories via the `UserStoryAnalyzerService`
+
+See [HOWTO.md](HOWTO.md) for standalone and multi-agent usage guides.
 
 ---
 
@@ -14,18 +18,30 @@ A self-learning Deep Q-Network (DQN) agent that:
 deep_rl_cpp/
 ├── CMakeLists.txt
 ├── README.md
+├── HOWTO.md                              # Usage guide (standalone + multi-agent)
+├── controller/
+│   ├── controller.hpp                    # Controller — dispatches analysis menu
+│   └── controller.cpp
+├── model/
+│   ├── user_story.hpp                    # UserStory data model
+│   ├── user_story.cpp
+│   └── id_generator.hpp                  # Hash-based ID generation
+├── service/
+│   └── service.hpp                       # Service / ServiceController base classes
 └── src/
-    ├── neural_network.hpp    # Pure C++ neural network (He init, ReLU, SGD)
-    ├── replay_buffer.hpp     # Fixed-capacity experience replay buffer
-    ├── dqn_agent.hpp         # DQN agent (online + target networks, ε-greedy)
-    ├── code_analyzer.hpp     # Codebase walker — extracts structural features
-    ├── state_encoder.hpp     # CodebaseGraph → 20-dim state vector
-    ├── prompt_actions.hpp    # Discrete action space enum + PromptDecisions
-    ├── prompt_builder.hpp    # Assembles LLM prompt from agent decisions
-    ├── reward_evaluator.hpp  # Scores generated code → scalar reward
-    ├── llm_client.hpp        # Anthropic + Ollama client interfaces
-    ├── llm_client.cpp        # libcurl implementations (Anthropic & Ollama)
-    └── main.cpp              # Training loop + inference pipeline
+    ├── neural_network.hpp                # Pure C++ neural network (He init, ReLU, SGD)
+    ├── replay_buffer.hpp                 # Fixed-capacity experience replay buffer
+    ├── dqn_agent.hpp                     # DQN agent (online + target networks, ε-greedy)
+    ├── code_analyzer.hpp                 # Codebase walker — language, pattern, features
+    ├── state_encoder.hpp                 # CodebaseGraph → 20-dim state vector
+    ├── prompt_actions.hpp                # Discrete action space enum + PromptDecisions
+    ├── prompt_builder.hpp                # Assembles LLM prompt from agent decisions
+    ├── reward_evaluator.hpp              # Scores generated code → scalar reward
+    ├── user_story_analyzer_service.hpp   # Analyses user stories, returns scores
+    ├── user_story_analyzer_service.cpp
+    ├── llm_client.hpp                    # Anthropic + Ollama client interfaces
+    ├── llm_client.cpp                    # libcurl implementations
+    └── main.cpp                          # Training loop + inference + analysis demo
 ```
 
 ---
@@ -33,7 +49,7 @@ deep_rl_cpp/
 ## Dependencies
 
 | Dependency | Required | Purpose | Install |
-| :----------- | :--------- | :-------- | :-------- |
+| :--------- | :------- | :------ | :------ |
 | C++17 compiler | Yes | Structured bindings, `fs::` | GCC 9+, Clang 9+, MSVC 2019+ |
 | CMake 3.16+ | Yes | Build system | `apt-get install cmake` |
 | libcurl | Optional | HTTP calls to Anthropic/Ollama API | `apt-get install libcurl4-openssl-dev` |
@@ -57,20 +73,6 @@ brew install curl nlohmann-json                                # macOS
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
-
-# 3. Run demo (no LLM needed)
-./deep_rl_agent
-
-# 4. Run with real codebase + Anthropic Claude
-./deep_rl_agent /path/to/your/project sk-ant-your-api-key "your user story"
-
-# 5. Run with real codebase + Ollama (no API key needed)
-#    Start Ollama first: ollama serve  (or point to a remote host)
-./deep_rl_agent /path/to/your/project http://<ollama-host>:11434 <model> "your user story"
-
-# Example: remote Ollama host, llama3.1:8b model
-./deep_rl_agent /path/to/your/project http://192.168.50.153:11434 llama3.1:8b \
-    "Add a new feature to include user story analyzer"
 ```
 
 ### Windows (MSVC + vcpkg)
@@ -80,8 +82,62 @@ vcpkg install curl nlohmann-json
 mkdir build && cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build . --config Release
-.\Release\deep_rl_agent.exe
 ```
+
+---
+
+## Running
+
+### Demo mode — no LLM, no codebase required
+
+```bash
+./deep_rl_agent
+```
+
+### With a real codebase — Anthropic Claude
+
+```bash
+./deep_rl_agent /path/to/project sk-ant-your-api-key "your user story"
+```
+
+### With a real codebase — Ollama (no API key)
+
+```bash
+# Local Ollama
+./deep_rl_agent /path/to/project http://localhost:11434 llama3.1:8b "your user story"
+
+# Remote Ollama host
+./deep_rl_agent /path/to/project http://192.168.50.153:11434 llama3.1:8b "your user story"
+```
+
+Ollama is detected automatically when the second argument starts with `http`.
+
+### Output
+
+Each run with a codebase path prints four sections:
+
+```
+Analysed 21 files. Pattern: MVC
+Code Agent Ep 0 | Reward: 1 | Loss: 0 | Eps: 1.0
+...
+
+=== Generated Prompt ===
+...
+
+=== Generated Code ===
+...
+
+=== User Story Analysis ===
+  story[13085944...] -> score: 0.8
+  ...
+
+=== Code Analysis ===
+  Language : C++
+  Pattern  : MVC
+  Files    : 21
+```
+
+For driving the binary from Python (standalone script or multi-agent orchestrator), see [HOWTO.md](HOWTO.md).
 
 ---
 
@@ -107,21 +163,22 @@ State [codebase features + story keywords]  (20-dim)
              Backprop   → update online network weights
 ```
 
-### Architecture
+### Pipeline
 
 ```
 ┌──────────────────────────────────────────────────────┐
 │ OFFLINE (once per codebase)                          │
 │  Codebase → CodeAnalyzer → CodebaseGraph             │
-│                 ↓                                    │
-│           StateEncoder → 20-dim state vector         │
+│    detects: language, architecture pattern,          │
+│    naming convention, libraries in use               │
 └──────────────────────────────────────────────────────┘
                        ↓
 ┌──────────────────────────────────────────────────────┐
-│ TRAINING (many episodes)                             │
+│ TRAINING (200 episodes)                              │
 │  Story + State → DQNAgent.select_action()            │
 │       ↓                                              │
 │  PromptDecisions → PromptBuilder → Prompt string     │
+│    injects: language, libraries, architecture        │
 │       ↓                                              │
 │  LLM → Generated Code → RewardEvaluator → Reward    │
 │       ↓                                              │
@@ -134,6 +191,12 @@ State [codebase features + story keywords]  (20-dim)
 │                  ↓                                   │
 │           LLM → Production Code                      │
 └──────────────────────────────────────────────────────┘
+                       ↓
+┌──────────────────────────────────────────────────────┐
+│ USER STORY ANALYSIS                                  │
+│  UserStoryAnalyzerService scores each story          │
+│  Results keyed by content-hash ID                    │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -141,12 +204,15 @@ State [codebase features + story keywords]  (20-dim)
 ## Key Design Decisions
 
 | Decision | Rationale |
-|:---------|:----------|
+| :------- | :-------- |
 | Header-only core (except LLM client) | Zero-dependency compilation for demo mode |
 | He initialisation | Prevents vanishing gradients with ReLU activations |
 | Separate online / target networks | Prevents reward instability (moving target problem) |
 | ε-greedy with decay | Explores early, exploits learned policy later |
 | Multi-signal reward | Compilation + style + architecture = holistic quality |
+| Language detection in prompt | Prevents LLM from switching languages (e.g. Python on a C++ project) |
+| Library inventory in prompt | Constrains LLM to dependencies already in the codebase |
+| Ollama support | Local inference with no API key; detected by `http` prefix on arg |
 
 ---
 
@@ -154,5 +220,7 @@ State [codebase features + story keywords]  (20-dim)
 
 - **New action**: Add entry to `PromptAction` enum, handle in `PromptBuilder::build()`
 - **Richer state**: Extend `StateEncoder::encode()` — update `STATE_SIZE` in `main.cpp`
-- **Different LLM**: Replace `LLMClient::generate()` body with your provider's API
+- **Different LLM**: Implement `generate()` in `llm_client.cpp` for your provider
 - **Deeper network**: Change topology in `DQNAgent` constructor: `{20, 256, 256, 12}`
+- **Real reward signal**: Replace the mock reward in `main.cpp` with `RewardEvaluator::compute_reward()` wired to actual compilation + test results
+- **Multi-agent orchestration**: See [HOWTO.md — Multi-Agent System](HOWTO.md#multi-agent-system-with-python)
