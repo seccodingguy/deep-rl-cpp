@@ -56,7 +56,40 @@ int main(int argc, char* argv[]) {
     const int ACTION_SIZE = 2;    // toy env: push left / push right
     const int EPISODES    = 500;
 
-    // ── 1. Code-aware pipeline (optional – requires real codebase path) ───────
+    // ── 1. Story-only analysis (no codebase) ─────────────────────────────────
+    // Detected when argv[1] contains a space — it is a sentence, not a file path.
+    // Usage:
+    //   Story only:                ./deep_rl_agent "<user story>"
+    //   Story + requirement context: ./deep_rl_agent "<user story>" "<requirement>"
+    if (argc >= 2 && std::string(argv[1]).find(' ') != std::string::npos) {
+        std::string user_story   = argv[1];
+        std::string requirement  = (argc >= 3) ? argv[2] : "";
+
+        UserStoryAnalyzerService svc;
+        std::vector<UserStory> stories = { UserStory("", user_story) };
+        auto analyses = svc.analyzeStoryOnly(stories, requirement);
+
+        std::cout << "\n=== User Story Analysis (Story-Only Mode) ===\n";
+        if (!requirement.empty())
+            std::cout << "  Requirement : " << requirement << "\n";
+        std::cout << "  Story       : " << user_story << "\n\n";
+
+        for (auto& [id, sa] : analyses) {
+            std::cout << "  story[" << id.substr(0, 8) << "...]\n";
+            std::cout << "    Role present    : " << (sa.has_role    ? "yes" : "no") << "\n";
+            std::cout << "    Goal present    : " << (sa.has_goal    ? "yes" : "no") << "\n";
+            std::cout << "    Benefit present : " << (sa.has_benefit ? "yes" : "no") << "\n";
+            std::cout << "    Format score    : " << sa.format_score  << "\n";
+            if (sa.alignment_score >= 0.0)
+                std::cout << "    Alignment score : " << sa.alignment_score << "\n";
+            std::cout << "    Overall score   : " << sa.overall_score << "\n";
+            std::cout << "    Feedback        : " << sa.feedback      << "\n";
+        }
+
+        return 0;
+    }
+
+    // ── 2. Code-aware pipeline (optional – requires real codebase path) ───────
     // Usage:
     //   Anthropic: ./deep_rl_agent <codebase> <api_key> [story]
     //   Ollama:    ./deep_rl_agent <codebase> <http_base_url> <model> [story]

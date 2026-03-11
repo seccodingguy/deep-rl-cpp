@@ -1,0 +1,32 @@
+[
+{
+  "directory": "/home/mwireman/playground/deep_rl_cpp/build",
+  "command": "/usr/bin/g++ -DHAS_CURL=1 -DHAS_JSON=1 -I/home/mwireman/playground/deep_rl_cpp/src -I/home/mwireman/playground/deep_rl_cpp -g -std=c++17 -Wall -Wextra -O2 -o CMakeFiles/deep_rl_agent.dir/src/main.cpp.o -c /home/mwireman/playground/deep_rl_cpp/src/main.cpp",
+  "file": "/home/mwireman/playground/deep_rl_cpp/src/main.cpp",
+  "output": "CMakeFiles/deep_rl_agent.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/mwireman/playground/deep_rl_cpp/build",
+  "command": "/usr/bin/g++ -DHAS_CURL=1 -DHAS_JSON=1 -I/home/mwireman/playground/deep_rl_cpp/src -I/home/mwireman/playground/deep_rl_cpp -g -std=c++17 -Wall -Wextra -O2 -o CMakeFiles/deep_rl_agent.dir/src/llm_client.cpp.o -c /home/mwireman/playground/deep_rl_cpp/src/llm_client.cpp",
+  "file": "/home/mwireman/playground/deep_rl_cpp/src/llm_client.cpp",
+  "output": "CMakeFiles/deep_rl_agent.dir/src/llm_client.cpp.o"
+},
+{
+  "directory": "/home/mwireman/playground/deep_rl_cpp/build",
+  "command": "/usr/bin/g++ -DHAS_CURL=1 -DHAS_JSON=1 -I/home/mwireman/playground/deep_rl_cpp/src -I/home/mwireman/playground/deep_rl_cpp -g -std=c++17 -Wall -Wextra -O2 -o CMakeFiles/deep_rl_agent.dir/src/user_story_analyzer_service.cpp.o -c /home/mwireman/playground/deep_rl_cpp/src/user_story_analyzer_service.cpp",
+  "file": "/home/mwireman/playground/deep_rl_cpp/src/user_story_analyzer_service.cpp",
+  "output": "CMakeFiles/deep_rl_agent.dir/src/user_story_analyzer_service.cpp.o"
+},
+{
+  "directory": "/home/mwireman/playground/deep_rl_cpp/build",
+  "command": "/usr/bin/g++ -DHAS_CURL=1 -DHAS_JSON=1 -I/home/mwireman/playground/deep_rl_cpp/src -I/home/mwireman/playground/deep_rl_cpp -g -std=c++17 -Wall -Wextra -O2 -o CMakeFiles/deep_rl_agent.dir/controller/controller.cpp.o -c /home/mwireman/playground/deep_rl_cpp/controller/controller.cpp",
+  "file": "/home/mwireman/playground/deep_rl_cpp/controller/controller.cpp",
+  "output": "CMakeFiles/deep_rl_agent.dir/controller/controller.cpp.o"
+},
+{
+  "directory": "/home/mwireman/playground/deep_rl_cpp/build",
+  "command": "/usr/bin/g++ -DHAS_CURL=1 -DHAS_JSON=1 -I/home/mwireman/playground/deep_rl_cpp/src -I/home/mwireman/playground/deep_rl_cpp -g -std=c++17 -Wall -Wextra -O2 -o CMakeFiles/deep_rl_agent.dir/model/user_story.cpp.o -c /home/mwireman/playground/deep_rl_cpp/model/user_story.cpp",
+  "file": "/home/mwireman/playground/deep_rl_cpp/model/user_story.cpp",
+  "output": "CMakeFiles/deep_rl_agent.dir/model/user_story.cpp.o"
+}
+]

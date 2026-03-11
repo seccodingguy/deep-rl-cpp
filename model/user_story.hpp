@@ -10,9 +10,11 @@ public:
     ~UserStory();
 
     std::string getId() const;
+    std::string getContent() const;
 private:
     IdGenerator idGen_;
     std::string storyId_;
+    std::string content_;
 };
 
 #endif // MODEL_USER_STORY_HPP
